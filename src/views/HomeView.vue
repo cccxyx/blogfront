@@ -57,7 +57,7 @@ const response = await axios.post(
     }
   }
   catch (error) {
-    ElMessage.error('登录请求失败！');
+    ElMessage.error('请检查账号密码');
     return;
   }
   

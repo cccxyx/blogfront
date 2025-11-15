@@ -46,12 +46,13 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue'
-import router from '@/router';
+import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { ElMessage } from 'element-plus'
 const username = ref('')
 const email = ref('')
 const password = ref('')
+const router = useRouter();
 const handleRegister = async () => {
   if (!username.value || !password.value || !email.value) {
     ElMessage.warning('账号,邮箱和密码不能为空！');
@@ -68,15 +69,14 @@ const handleRegister = async () => {
     }
     );
 
-    if (response.data.success) { 
-      router.push('/');   
-    } else {
-      ElMessage.error(response.data.message || '注册失败，请检查账号和密码。');
-      console.error('注册失败：', response.data);
+    if (response.data.code === 200) {
+      ElMessage.success('注册成功，即将返回登录页面'); 
+      setTimeout(() => {
+        router.push('/');
+      }, 3000);  
     }
   } catch (error) {
-    ElMessage.error('请求出错，请稍后再试。');
-    console.error('注册请求出错：', error);
+    ElMessage.error('注册失败');
   }
 };
 </script>
