@@ -52,15 +52,17 @@ const response = await axios.post(
     }
     );
     console.log(response);
-    if (response.data.code === 200) { 
-      router.push('/Home'); 
+    if (response.data.code === 200) {
+      const loggedInUsername = response.data.data.user.username;
+      localStorage.setItem('userId', response.data.data.user.id.toString());
+      localStorage.setItem('token', response.data.data.token);
+      router.push({ name:'Home', params: { username: loggedInUsername } });
     }
   }
   catch (error) {
     ElMessage.error('请检查账号密码');
     return;
   }
-  
 }
 </script>
 <style scoped>
