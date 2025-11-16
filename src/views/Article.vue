@@ -79,8 +79,8 @@ const fetchArticleDetail = async () => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      ElMessage.error('未检测到认证信息，请重新登录！');
-      router.push('/login');
+      ElMessage.error('未登录');
+      router.push('/');
       return;
     }
     const response = await axios.get(`http://localhost:8080/api/articles/${props.id}`, {
@@ -98,10 +98,12 @@ const fetchArticleDetail = async () => {
       };
     } else {
       ElMessage.error(response.data.message || '获取文章详情失败！');
-      router.push('/home/' + (localStorage.getItem('username') || 'User'));
+      router.push('/Home/' + (localStorage.getItem('username') || 'User'));
     }
-  } catch (error: any) {                                                      
+  } catch (error: any) {
+    if (axios.isAxiosError(error)) {
       ElMessage.error('发生未知错误！');
+    }
   } finally {
     isLoading.value = false;
   }
@@ -111,8 +113,8 @@ onMounted(() => {
   if (props.id) {
     fetchArticleDetail();
   } else {
-    ElMessage.error('文章ID缺失！');
-    router.push('/home/' + (localStorage.getItem('username') || 'User'));
+    ElMessage.error('未获取到文章id');
+    router.push('/Home/' + (localStorage.getItem('username') || 'User'));
   }
 });
 

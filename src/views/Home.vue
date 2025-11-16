@@ -1,6 +1,7 @@
 <template>
   <div>
     <h1>{{ $route.params.username }}, welcome! </h1>
+    
     <div class="header-buttons-container">
       <el-button type="primary" @click="buildnew">
         <el-icon><Edit /></el-icon>
@@ -12,9 +13,9 @@
       </el-button>
     </div>
 
-    <el-divider />
+    <el-divider/>
 
-    <h2 class="section-title">所有文章 ({{ articles.length }})</h2>
+    <h2 class="table-title">所有文章 ({{ articles.length }})</h2>
 
     <div v-if="isLoading" class="loading-state">
       <el-skeleton :rows="5" animated />
@@ -22,32 +23,23 @@
     </div>
 
     <div v-else-if="articles.length === 0" class="empty-state">
-      <el-empty description="暂时还没有文章哦，快去创建第一篇吧！" />
+      <el-empty description="暂时还没有文章哦,快去创建第一篇吧!" />
       <el-button type="primary" @click="buildnew">
         <el-icon><Plus /></el-icon>
         创建新文章
       </el-button>
     </div>
 
-    <div v-else class="post-list">
-      <el-card 
-        v-for="article in articles" 
-        :key="article.id" 
-        class="post-item" 
-        shadow="hover" 
-        @click="viewArticle(article.id)">
-        <template #header>
-          <div class="post-item-header">
-            <span class="post-title">{{ article.title }}</span>
-          </div>
-        </template>
-        <div class="post-meta">
-          <span><el-icon><Clock /></el-icon> 发表日期: {{ article.formattedCreatedAt }}</span>
-          <span v-if="article.formattedUpdatedAt && article.formattedUpdatedAt !== article.formattedCreatedAt" style="margin-left: 15px;">
-            <el-icon><RefreshRight /></el-icon> 更新日期: {{ article.formattedUpdatedAt }}
-          </span>
-        </div>
-      </el-card>
+    <div v-else class="article-table-wrapper">
+      <el-table :data="articles" style="width: 100%" class="my-table" @row-click="handleRowClick">
+        <el-table-column prop="title" label="标题" class-name="title-column">
+          <template #default="scope">
+            <span @click.stop="viewArticle(scope.row.id)" class="article-title-link">{{ scope.row.title }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="formattedCreatedAt" label="创建时间" width="200" class-name="date-column"></el-table-column>
+        <el-table-column prop="formattedUpdatedAt" label="更新时间" width="200" class-name="date-column"></el-table-column>
+      </el-table>
     </div>
   </div>
 </template>
@@ -57,8 +49,9 @@ import { useRoute } from 'vue-router';
 import axios from 'axios';
 import { ref, onMounted, defineProps } from 'vue';
 import router from '@/router';
-import { ElMessage, ElCard, ElButton, ElDivider, ElEmpty, ElSkeleton } from 'element-plus';
+import { ElMessage, ElButton, ElDivider, ElEmpty, ElSkeleton, ElTable, ElTableColumn } from 'element-plus';
 import { Edit, SwitchButton, Clock, Plus, RefreshRight } from '@element-plus/icons-vue';
+
 const username = ref('User');
 const route = useRoute();
 interface Props {
@@ -68,6 +61,7 @@ const props = defineProps<Props>();
 const buildnew = () => {
   router.push('/Write');
 };
+
 const displayUsername = ref(props.username || localStorage.getItem('username') || 'User'); 
 const currentUserId = ref<number | null>(null);
 const articles = ref<Article[]>([]);
@@ -112,7 +106,7 @@ const formatDate = (isoString: string | undefined): string => {
 const fetchUserInfo = async () => {
   const token = localStorage.getItem('token');
   if (!token) {
-    ElMessage.warning('未检测到认证信息，请先登录！');
+    ElMessage.warning('未登录');
     localStorage.removeItem('username');
     localStorage.removeItem('userId');
     router.push('/');
@@ -134,25 +128,9 @@ const fetchUserInfo = async () => {
       localStorage.setItem('username', userData.username);
       localStorage.setItem('userId', userData.id.toString());
       return true;
-    } else {
-      ElMessage.error(response.data.message || '获取用户信息失败！');
-      localStorage.removeItem('token');
-      localStorage.removeItem('username');
-      localStorage.removeItem('userId');
-      router.push('/login');
-      return false;
     }
   } catch (error: any) {
-    if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-      ElMessage.error('认证过期，请重新登录！');
-    } else {
-      ElMessage.error('获取用户信息失败，请检查网络或稍后再试。');
-    }
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('userId');
-    router.push('/login');
-    return false;
+    ElMessage.error('未登录')
   }
 };
 
@@ -161,7 +139,7 @@ const fetchArticles = async () => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      ElMessage.error('未检测到认证信息，请重新登录！');
+      ElMessage.error('未登录');
       router.push('/');
       return;
     }
@@ -181,13 +159,15 @@ const fetchArticles = async () => {
       }));
 
       if (articles.value.length === 0) {
-        ElMessage.info('目前还没有任何文章。');
+        ElMessage.info('目前还没有任何文章');
       }
     } else {
       ElMessage.error(response.data.message || '获取文章列表失败！');
     }
   } catch (error: any) {
-      ElMessage.error('发生未知错误！');
+    if (axios.isAxiosError(error)) {
+      ElMessage.error('发生错误');
+    }
   } finally {
     isLoading.value = false;
   }
@@ -207,14 +187,19 @@ onMounted(async () => {
   }
 });
 
+const handleRowClick = (row: Article) => {
+  viewArticle(row.id);
+};
+
 const viewArticle = (articleId: number) => {
-  router.push(`/article/${articleId}`);
+  router.push(`/Article/${articleId}`);
 };
 
 const logout = () => {
   localStorage.removeItem('username');
   localStorage.removeItem('userId');
   localStorage.removeItem('token');
+
   ElMessage.success('已成功退出登录！');
   router.push('/');
 };
@@ -243,11 +228,10 @@ button {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: -10px; 
   margin-right: 20px;
 }
-
-.section-title {
+.table-title {
   text-align: center;
   color: white;
   margin-bottom: 20px;
@@ -260,56 +244,60 @@ button {
   color: #bbb;
 }
 
-.post-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+.article-table-wrapper {
   max-width: 960px;
   margin: 0 auto;
 }
 
-.post-item {
-  transition: all 0.3s ease;
-  cursor: pointer;
-  height: auto;
-  background-color: #444;
-  border: none;
+.my-table {
+  background-color: #333;
   color: white;
+  border-radius: 8px;
+  overflow: hidden;
 }
-.post-item :deep(.el-card__header) {
+
+.my-table :deep(.el-table__header-wrapper) {
+  background-color: #444;
+}
+
+.my-table :deep(.el-table__header-wrapper th) {
+  background-color: #444;
+  color: white;
   border-bottom: 1px solid #555;
 }
-.post-item:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.3);
-}
-.post-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.post-title {
-  font-size: 1.2em;
-  font-weight: bold;
+
+.my-table :deep(.el-table__body-wrapper tr) {
+  background-color: #333;
   color: white;
-  text-decoration: none;
 }
-.post-title:hover {
+
+.my-table :deep(.el-table__body-wrapper tr:hover) {
+  background-color: #555;
+  cursor: pointer;
+}
+
+.my-table :deep(.el-table__body-wrapper td) {
+  border-bottom: 1px solid #555;
+}
+
+.article-title-link {
   color: #409eff;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: bold;
 }
-.post-meta {
-  display: flex;
-  align-items: center;
-  font-size: 0.9em;
+
+.article-title-link:hover {
+  text-decoration: underline;
+}
+
+.title-column {
+  font-size: 1.1em;
+}
+
+.date-column {
+  font-size: 0.95em;
   color: #bbb;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-.post-meta span:not(:first-child) {
-    margin-left: 10px;
-}
-.post-meta .el-icon {
-  margin-right: 5px;
 }
 
 @media (max-width: 768px) {
@@ -317,9 +305,6 @@ button {
     flex-direction: column;
     align-items: center;
     margin-right: 0;
-  }
-  .post-list {
-    grid-template-columns: 1fr;
   }
 }
 </style>

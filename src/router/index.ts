@@ -25,11 +25,14 @@ const router = createRouter({
       path:'/Article/:id',
       name:'Article',
       component: () => import('../views/Article.vue'),
+      props: true,
     },
     {
-      path:'/Edit',
-      name:'Edit',
+      path: '/edit/:id', 
+      name: 'EditArticle',
       component: () => import('../views/Edit.vue'),
+      props: true,
+      meta: { requiresAuth: true }
     },
     {
       path:'/Write',
