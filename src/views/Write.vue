@@ -36,13 +36,13 @@ const textarea = ref('')
 const submit = async () => {
   const token = localStorage.getItem('token');
   if (!token) {
-    ElMessage.error('您尚未登录或认证已过期，请先登录！');
+    ElMessage.error('请先登录');
     router.push('/');
     return;
   }
 
   if (!title.value.trim() || !textarea.value.trim()) {
-    ElMessage.warning('文章标题和内容不能为空！');
+    ElMessage.warning('文章标题和内容不能为空');
     return;
   }
 
@@ -61,12 +61,12 @@ const submit = async () => {
     );
 
     if (response.data.code === 200) { 
-      ElMessage.success('文章发布成功!');
+      ElMessage.success('文章发布成功');
       title.value = '';
       textarea.value = '';
       router.push(`/article/${response.data.data.id}`);
     } else {
-      ElMessage.error(response.data.message || '文章发布失败!');
+      ElMessage.error(response.data.message || '文章发布失败');
     }
   } catch (error: any) {
     console.error('文章发布失败:', error);
