@@ -54,7 +54,7 @@
         <p>所有文章加载中...</p>
       </div>
       <div v-else-if="allOtherArticles.length === 0" class="empty-state">
-        <el-empty description="暂时还没有其他人的文章哦" />
+        <el-empty description="暂时还没有其他人的文章" />
       </div>
       <div v-else class="articles-grid">
         <el-card v-for="article in allOtherArticles" :key="article.id" class="article-card" @click="viewArticle(article.id)">
@@ -76,76 +76,56 @@
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
-import axios from 'axios';
-import { ref, onMounted } from 'vue';
-import router from '@/router';
+import { useRoute,useRouter } from 'vue-router';
+import { ref, onMounted,computed } from 'vue';
 import { ElMessage, ElButton, ElDivider, ElEmpty, ElSkeleton, ElMenu, ElMenuItem, ElCard } from 'element-plus';
 import { Edit, SwitchButton, Clock, Plus, RefreshRight, User } from '@element-plus/icons-vue';
-
-const route = useRoute();
-
-interface Props {
-  username: string;
-}
-const props = defineProps<Props>();
-
-const displayUsername = ref(props.username || localStorage.getItem('username') || 'User');
-const currentUserId = ref<number | null>(null);
-
-interface Article {
-  id: number;
-  title: string;
-  content: string;
-  user_id: number;
-  author?: {
-    id: number;
-    username: string;
-    email: string;
-  };
-  created_at: string;
-  updated_at: string;
-  formattedCreatedAt?: string;
-  formattedUpdatedAt?: string;
-}
+import {
+  fetchAllArticles,
+  fetchMyArticles
+} from '@/api/article';
+import { Article } from '@/types/api';
 
 const myArticles = ref<Article[]>([]);
 const allOtherArticles = ref<Article[]>([]);
-const isLoadingMyArticles = ref(true);
-const isLoadingAllArticles = ref(true);
+const isLoadingMyArticles = ref(false);
+const isLoadingAllArticles = ref(false);
+const currentLoggedInUserId = ref<number | null>(null);
 
-const formatDate = (isoString: string | undefined): string => {
-  if (!isoString) return '';
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) {
-      return isoString.split(' ')[0] || '';
-    }
-    return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-  } catch (e) {
-    return isoString.split(' ')[0] || '';
+const router = useRouter();
+const route = useRoute();
+
+const displayUsername = computed(() => {
+  const usernameFromStorage = localStorage.getItem('username');
+  if (usernameFromStorage) {
+    return usernameFromStorage;
   }
+  return route.params.username ? String(route.params.username) : 'User';
+});
+
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
-const fetchMyArticles = async (userId: number) => {
+const loadMyArticles = async () => {
   isLoadingMyArticles.value = true;
+  myArticles.value = [];
   try {
-    const response = await axios.get(`http://localhost:8080/api/articles/user/${userId}`);
-    if (response.data.code === 200 && response.data.data) {
-      myArticles.value = response.data.data.map((article: Article) => ({
-        ...article,
-        formattedCreatedAt: formatDate(article.created_at),
-        formattedUpdatedAt: formatDate(article.updated_at),
-      }));
+    const userIdStr = localStorage.getItem('userId');
+    if (userIdStr) {
+      const userId = parseInt(userIdStr);
+      currentLoggedInUserId.value = userId;
+      myArticles.value = await fetchMyArticles(userId);
     } else {
-      ElMessage.error(response.data.message || '获取我的文章失败');
+      console.warn("User ID not found in localStorage when trying to load user's articles.");
     }
   } catch (error) {
     console.error('获取我的文章失败:', error);
@@ -154,57 +134,52 @@ const fetchMyArticles = async (userId: number) => {
   }
 };
 
-const fetchAllArticles = async () => {
+const loadAllOtherArticles = async () => {
   isLoadingAllArticles.value = true;
+  allOtherArticles.value = [];
   try {
-    const response = await axios.get('http://localhost:8080/api/articles');
-    if (response.data.code === 200 && response.data.data) {
-      allOtherArticles.value = response.data.data
-        .filter((article: Article) => article.user_id !== currentUserId.value)
-        .map((article: Article) => ({
-            ...article,
-            formattedCreatedAt: formatDate(article.created_at),
-            formattedUpdatedAt: formatDate(article.updated_at),
-        }));
+    const allFetchedArticles = await fetchAllArticles();
+    const userIdStr = localStorage.getItem('userId');
+    const currentUserIdNum = userIdStr ? parseInt(userIdStr) : null;
+
+    if (currentUserIdNum !== null) {
+      allOtherArticles.value = allFetchedArticles.filter(
+        (article) => article.user_id !== currentUserIdNum
+      );
     } else {
-      ElMessage.error(response.data.message || '获取所有文章失败');
+      allOtherArticles.value = allFetchedArticles;
     }
   } catch (error) {
-    console.error('获取所有文章失败:', error);
+    console.error('获取其他人的文章失败:', error);
   } finally {
     isLoadingAllArticles.value = false;
   }
 };
+onMounted(() => {
+  const storedUserId = localStorage.getItem('userId');
+  if (storedUserId) {
+    currentLoggedInUserId.value = parseInt(storedUserId);
+  }
+
+  loadMyArticles();
+  loadAllOtherArticles();
+});
 
 const buildnew = () => {
   router.push('/write');
-};
-
-const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('userId');
-  localStorage.removeItem('username');
-  ElMessage.success('已退出登录');
-  router.push('/');
 };
 
 const viewArticle = (id: number) => {
   router.push(`/article/${id}`);
 };
 
-onMounted(async () => {
-  const userId = localStorage.getItem('userId');
-  if (userId) {
-    currentUserId.value = parseInt(userId);
-    await Promise.all([
-      fetchMyArticles(currentUserId.value),
-      fetchAllArticles(),
-    ]);
-  } else {
-    ElMessage.error('请重新登录。');
-    router.push('/');
-  }
-});
+const logout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('userId');
+  localStorage.removeItem('username');
+  ElMessage.success('已退出登录!');
+  router.push('/');
+};
 </script>
 
 <style scoped>

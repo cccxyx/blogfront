@@ -1,32 +1,4 @@
-export interface ApiResponse<T = any> {
-  code: number;
-  message: string;
-  data: T;
-}
-
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-}
-
-export interface LoginResponseData {
-  user: User;
-  token: string;
-}
-
-export interface RegisterPayload {
-  username: string;
-  password: string;
-  email: string;
-}
-
-export interface LoginPayload {
-  username: string;
-  password: string;
-}
-
-export interface ArticleAuthor {
+export interface Author {
   id: number;
   username: string;
   email: string;
@@ -37,21 +9,23 @@ export interface Article {
   title: string;
   content: string;
   user_id: number;
-  author: ArticleAuthor;
+  author: Author;
   created_at: string;
   updated_at: string;
   formattedCreatedAt?: string;
   formattedUpdatedAt?: string;
 }
 
-export type ArticleDetail = Article;
-
-export interface CreateArticlePayload {
-  title: string;
-  content: string;
+export interface ApiResponse<T> {
+  code: number;
+  message: string;
+  data: T;
 }
 
-export interface UpdateArticlePayload {
-  title: string;
-  content: string;
+export interface LoginResponseData {
+  user: {
+    id: number;
+    username: string;
+  };
+  token: string;
 }

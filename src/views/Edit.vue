@@ -21,96 +21,47 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
 import { ElMessage } from 'element-plus';
 import VMdEditor from '@kangc/v-md-editor';
 import '@kangc/v-md-editor/lib/style/base-editor.css';
-const props = defineProps({
-  id: {
-    type: Number,
-    required: true,
-  },
-});
+import { fetchArticleDetail, updateArticle } from '@/api/article';
+const props = defineProps<{
+  id: number;
+}>();
 const router = useRouter();
 const title = ref('');
 const textarea = ref('');
 const isLoading = ref<boolean>(false);
-const fetchArticleDetail = async () => {
+const loadArticleData = async () => {
   isLoading.value = true;
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      ElMessage.error('未登录');
-      router.push('/');
-      return;
-    }
-    const response = await axios.get(
-      `http://localhost:8080/api/articles/${props.id}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    if (response.data.code === 200 && response.data.data) {
-      const data = response.data.data;
-      title.value = data.title;
-      textarea.value = data.content;
-    } else {
-      ElMessage.error(response.data.message || '获取文章失败!');
-      router.back();
-    }
-  } catch (error: any) {
-    ElMessage.error('获取文章详情失败!');
+    const data = await fetchArticleDetail(props.id);
+    title.value = data.title;
+    textarea.value = data.content;
+  } catch (error) {
+    console.error('获取文章失败:', error);
+    ElMessage.error('文章加载失败或无权编辑');
     router.back();
   } finally {
     isLoading.value = false;
   }
 };
+
 const onSubmit = async () => {
-  if (!props.id) {
-    ElMessage.error('未获取到文章ID');
-    return;
-  }
   if (!title.value.trim() || !textarea.value.trim()) {
-    ElMessage.warning('文章标题和内容不能为空!');
-    return;
-  }
-  const token = localStorage.getItem('token');
-  if (!token) {
-    ElMessage.error('未登录');
-    router.push('/');
+    ElMessage.warning('文章标题和内容不能为空');
     return;
   }
   try {
-    const response = await axios.put(
-      `http://localhost:8080/api/articles/${props.id}`,
-      {
-        title: title.value,
-        content: textarea.value
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    if (response.data.code === 200) {
-      ElMessage.success('文章更新成功');
-      router.push(`/Article/${props.id}`);
-    }
-  } catch (error: any) {
-    ElMessage.error('更新文章失败');
+    await updateArticle(props.id, title.value, textarea.value);
+    ElMessage.success('文章更新成功');
+    router.push(`/article/${props.id}`);
+  } catch (error) {
+    console.error('更新文章失败:', error);
   }
 };
-
 onMounted(() => {
-  if (props.id) {
-    fetchArticleDetail();
-  } else {
-    ElMessage.error('未获取到文章id');
-    router.back();
-  }
+  loadArticleData();
 });
 </script>
 

@@ -29,35 +29,16 @@
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
-import VMdPreview from '@kangc/v-md-editor/lib/preview';
-import '@kangc/v-md-editor/lib/style/preview.css';
-
-interface Author {
-  id: number;
-  username: string;
-  email: string;
-}
-
-interface ArticleDetail {
-  id: number;
-  title: string;
-  content: string;
-  user_id: number;
-  author: Author;
-  created_at: string;
-  updated_at: string;
-  formattedCreatedAt?: string;
-  formattedUpdatedAt?: string;
-}
+import { User, Clock, RefreshRight, Edit, Delete } from '@element-plus/icons-vue';
+import { fetchArticleDetail, deleteArticle } from '@/api/article';
+import { Article } from '@/types/api';
 
 const props = defineProps<{
   id: string;
 }>();
 
 const router = useRouter();
-
-const article = ref<ArticleDetail>({
+const article = ref<Article>({
   id: 0, title: '', content: '', user_id: 0,
   author: { id: 0, username: '', email: '' },
   created_at: '', updated_at: ''
@@ -66,97 +47,68 @@ const isLoading = ref(true);
 const currentLoggedInUserId = ref<number | null>(null);
 
 const isAuthor = computed(() => {
-  return currentLoggedInUserId.value !== null && article.value.user_id === currentLoggedInUserId.value;
-});
-const formatDate = (isoString: string | undefined): string => {
-  if (!isoString) return '';
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) {
-      return isoString.split(' ')[0] || '';
-    }
-    return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-  } catch (e) {
-    return isoString.split(' ')[0] || '';
+  if (currentLoggedInUserId.value === null || article.value.user_id === 0) {
+    return false;
   }
+  return currentLoggedInUserId.value === article.value.user_id;
+});
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
-
-const fetchArticleDetail = async () => {
+const loadArticleData = async () => {
   isLoading.value = true;
   try {
-    const response = await axios.get(`http://localhost:8080/api/articles/${props.id}`);
-
-    if (response.data.code === 200 && response.data.data) {
-      const data = response.data.data;
-      article.value = {
-        ...data,
-        formattedCreatedAt: formatDate(data.created_at),
-        formattedUpdatedAt: formatDate(data.updated_at),
-      };
-    } else {
-      ElMessage.error(response.data.message || '获取文章详情失败!');
-      router.push('/home/' + (localStorage.getItem('username') || 'User'));
+    const data = await fetchArticleDetail(props.id);
+    article.value = {
+      ...data
+    };
+    const userIdStr = localStorage.getItem('userId');
+    if (userIdStr) {
+      currentLoggedInUserId.value = parseInt(userIdStr);
     }
-  } catch (error: any) {
-    ElMessage.error('请求失败');
+  } catch (error) {
+    ElMessage.error('文章不存在或无法加载！');
     router.push('/home/' + (localStorage.getItem('username') || 'User'));
   } finally {
     isLoading.value = false;
   }
 };
-
-const deleteArticle = async () => {
+const goBack = () => {
+  router.back();
+};
+const editArticle = () => {
+  router.push(`/edit/${props.id}`);
+};
+const handleDeleteArticle = async () => {
   try {
     await ElMessageBox.confirm('此操作将永久删除该文章, 是否继续?', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning',
     });
-
-    const response = await axios.delete(`http://localhost:8080/api/articles/${props.id}`);
-
-    if (response.data.code === 200) {
-      ElMessage.success('文章删除成功!');
-      router.push('/home/' + (localStorage.getItem('username') || 'User'));
-    } else {
-      ElMessage.error(response.data.message || '删除文章失败!');
-    }
+    await deleteArticle(props.id);
+    ElMessage.success('文章删除成功!');
+    router.push('/home/' + (localStorage.getItem('username') || 'User'));
   } catch (error: any) {
     if (error === 'cancel') {
       ElMessage.info('已取消删除');
     } else {
-      ElMessage.error('删除文章失败!');
+      ElMessage.error('删除文章失败:', error);
     }
   }
 };
 
 onMounted(() => {
-  if (props.id) {
-    fetchArticleDetail();
-    const storedUserId = localStorage.getItem('userId');
-    if (storedUserId) {
-      currentLoggedInUserId.value = parseInt(storedUserId);
-    }
-  } else {
-    ElMessage.error('未获取到文章id');
-    router.push('/home/' + (localStorage.getItem('username') || 'User'));
-  }
+  loadArticleData();
 });
-
-const goBack = () => {
-  router.back();
-};
-
-const editArticle = () => {
-  router.push(`/edit/${props.id}`);
-};
 </script>
 
 <style scoped>

@@ -12,8 +12,6 @@
         <RouterLink to="/register">Register</RouterLink>
       </nav>
     </div>
-
-    <RouterView />
     <div class="input-username">
       <h3 style="color: skyblue;">账号</h3>
       <el-input
@@ -53,36 +51,27 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router';
-import axios from 'axios';
 import { ElMessage } from 'element-plus'
+import { register } from '@/api/auth';
 const username = ref('')
 const email = ref('')
 const password = ref('')
 const router = useRouter();
 const handleRegister = async () => {
   if (!username.value || !password.value || !email.value) {
-    ElMessage.warning('账号,邮箱和密码不能为空！');
+    ElMessage.warning('账号,邮箱和密码不能为空');
     return;
   }
 
   try {
-    const response = await axios.post(
-    'http://localhost:8080/api/register',
-    {
-    "username": username.value,
-    "password": password.value,
-    "email": email.value
-    }
-    );
+    await register(username.value, email.value, password.value);
+    ElMessage.success('注册成功，即将返回登录页面');
+    setTimeout(() => {
+      router.push('/');
+    }, 3000);
 
-    if (response.data.code === 200) {
-      ElMessage.success('注册成功，即将返回登录页面'); 
-      setTimeout(() => {
-        router.push('/');
-      }, 3000);  
-    }
   } catch (error) {
-    ElMessage.error('注册失败');
+    console.error('注册失败:', error);
   }
 };
 </script>

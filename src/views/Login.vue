@@ -43,33 +43,28 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue'
-import axios from 'axios';
 import { ElMessage } from 'element-plus'
 import router from '@/router';
+import { login } from '@/api/auth';
+
 const username = ref('')
 const password = ref('')
+
 const handleLogin = async () => {
   try {
-const response = await axios.post(
-    'http://localhost:8080/api/login',
-    {
-    "username": username.value,
-    "password": password.value
-    }
-    );
-    console.log(response);
-    if (response.data.code === 200) {
-      const loggedInUsername = response.data.data.user.username;
-      localStorage.setItem('userId', response.data.data.user.id.toString());
-      localStorage.setItem('token', response.data.data.token);
-      router.push({ name:'home', params: { username: loggedInUsername } });
-    }
+    const responseData = await login(username.value, password.value);
+    console.log(responseData);
+    ElMessage.success('登录成功');
+
+    const loggedInUsername = responseData.user.username;
+    localStorage.setItem('userId', responseData.user.id.toString());
+    localStorage.setItem('token', responseData.token);
+    localStorage.setItem('username', loggedInUsername);
+    router.push({ name: 'home', params: { username: loggedInUsername } });
+  } catch (error) {
+    console.error('登录失败:', error);
   }
-  catch (error) {
-    ElMessage.error('请检查账号密码');
-    return;
-  }
-}
+};
 </script>
 <style scoped>
 header {
